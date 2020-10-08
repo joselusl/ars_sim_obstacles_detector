@@ -54,7 +54,7 @@ class ArsSimObstaclesDetectorRos:
 
 
   # Detector range
-  detector_range = 3.5
+  detector_range = 2.0
 
 
   # Robot pose subscriber
@@ -96,7 +96,7 @@ class ArsSimObstaclesDetectorRos:
 
 
     # Robot size radius
-    self.detector_range = 3.5
+    self.detector_range = 2.0
 
     #
     self.flag_robot_pose_set = False
@@ -239,9 +239,10 @@ class ArsSimObstaclesDetectorRos:
             obst_i_posi[1] = obst_i_msg.pose.position.y
             obst_i_posi[2] = obst_i_msg.pose.position.z
 
-            #obst_i_rad = obst_i_msg.scale.x/2.0
+            obst_i_rad = obst_i_msg.scale.x/2.0
 
-            distance = np.linalg.norm(obst_i_posi-self.robot_posi)
+            distance = ars_lib_helpers.distancePointCircle(self.robot_posi[0:2], obst_i_posi[0:2], obst_i_rad)
+            #distance = np.linalg.norm(obst_i_posi-self.robot_posi)
 
             if(distance <= self.detector_range):
               
@@ -283,9 +284,10 @@ class ArsSimObstaclesDetectorRos:
             obst_i_posi[1] = obst_i_msg.pose.position.y
             obst_i_posi[2] = obst_i_msg.pose.position.z
 
-            #obst_i_rad = obst_i_msg.scale.x/2.0
+            obst_i_rad = obst_i_msg.scale.x/2.0
 
-            distance = np.linalg.norm(obst_i_posi-self.robot_posi)
+            distance = ars_lib_helpers.distancePointCircle(self.robot_posi[0:2], obst_i_posi[0:2], obst_i_rad)
+            #distance = np.linalg.norm(obst_i_posi-self.robot_posi)
 
             if(distance <= self.detector_range):
 
