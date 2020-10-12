@@ -50,11 +50,11 @@ class ArsSimObstaclesDetectorRos:
 
 
   # Robot frame
-  robot_frame = 'robot_base_link'
+  robot_frame = None
 
 
   # Detector range
-  detector_range = 2.0
+  detector_range = None
 
 
   # Robot pose subscriber
@@ -70,12 +70,10 @@ class ArsSimObstaclesDetectorRos:
   # Obstacles detected pub
   obstacles_detected_pub = None
 
-
-
   
 
   # Robot Pose
-  flag_robot_pose_set = False
+  flag_robot_pose_set = None
   robot_posi = None
   robot_atti_quat_simp = None
 
@@ -87,6 +85,14 @@ class ArsSimObstaclesDetectorRos:
 
   # Obstacles detected
   obstacles_detected_msg = None
+
+
+
+  # Obstacle Detection loop
+  # freq
+  obstacle_detect_loop_freq = None
+  # Timer
+  obstacle_detect_loop_timer = None
   
 
 
@@ -94,6 +100,8 @@ class ArsSimObstaclesDetectorRos:
 
   def __init__(self):
 
+    # Robot frame
+    self.robot_frame = 'robot_base_link'
 
     # Robot size radius
     self.detector_range = 2.0
@@ -109,9 +117,15 @@ class ArsSimObstaclesDetectorRos:
     #
     self.obstacles_dynamic_msg = MarkerArray()
 
-
     #
     self.obstacles_detected_msg = MarkerArray()
+
+
+    # Obstacle Detection loop
+    # freq
+    self.obstacle_detect_loop_freq = 10.0
+    # Timer
+    self.obstacle_detect_loop_timer = None
 
 
     # end
@@ -159,6 +173,12 @@ class ArsSimObstaclesDetectorRos:
 
     # 
     self.obstacles_detected_pub = rospy.Publisher('obstacles_detected', MarkerArray, queue_size=1)
+
+
+
+    # Timers
+    #
+    self.obstacle_detect_loop_timer = rospy.Timer(rospy.Duration(1.0/self.obstacle_detect_loop_freq), self.obstacleDetectorLoopTimerCallback)
 
 
     # End
@@ -214,6 +234,7 @@ class ArsSimObstaclesDetectorRos:
 
     #
     return
+
 
 
   def detectObstacles(self):
@@ -307,12 +328,20 @@ class ArsSimObstaclesDetectorRos:
             print("Unknown obstacle type!!")
 
 
-
     # Publish
-
     self.obstacles_detected_pub.publish(self.obstacles_detected_msg)
 
+    #
+    return
 
+
+  def obstacleDetectorLoopTimerCallback(self, timer_msg):
+
+    # Get time
+    time_stamp_current = rospy.Time.now()
+
+    #
+    self.detectObstacles()
 
     #
     return
