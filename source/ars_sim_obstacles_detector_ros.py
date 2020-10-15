@@ -5,6 +5,8 @@ from numpy import *
 
 import os
 
+import copy
+
 
 
 
@@ -15,18 +17,15 @@ import rospy
 import rospkg
 
 import std_msgs.msg
-from std_msgs.msg import Bool
 from std_msgs.msg import Header
 
 
 import geometry_msgs.msg
-from geometry_msgs.msg import Twist
 from geometry_msgs.msg import PoseStamped
-from geometry_msgs.msg import TwistStamped
 
 import visualization_msgs.msg
-from visualization_msgs.msg import MarkerArray
 from visualization_msgs.msg import Marker
+from visualization_msgs.msg import MarkerArray
 
 
 
@@ -48,14 +47,17 @@ class ArsSimObstaclesDetectorRos:
 
   #######
 
-
   # Robot frame
   robot_frame = None
-
 
   # Detector range
   detector_range = None
 
+  # Covariance on measurement of position
+  cov_meas_pos = None
+
+  # Covariance on measurement of sizes
+  cov_meas_siz = None
 
   # Robot pose subscriber
   robot_pose_sub = None
@@ -66,11 +68,10 @@ class ArsSimObstaclesDetectorRos:
   # Obstacles dynamic sub
   obstacles_dynamic_sub = None
 
-
   # Obstacles detected pub
-  obstacles_detected_pub = None
+  obstacles_detected_world_pub = None
+  obstacles_detected_robot_pub = None
 
-  
 
   # Robot Pose
   flag_robot_pose_set = None
@@ -84,8 +85,8 @@ class ArsSimObstaclesDetectorRos:
   obstacles_dynamic_msg = None
 
   # Obstacles detected
-  obstacles_detected_msg = None
-
+  obstacles_detected_world_msg = None
+  obstacles_detected_robot_msg = None
 
 
   # Obstacle Detection loop
@@ -106,6 +107,12 @@ class ArsSimObstaclesDetectorRos:
     # Robot size radius
     self.detector_range = 2.0
 
+    # Covariance on measurement of position
+    self.cov_meas_pos = {'x': 0.0001, 'y': 0.0001, 'z': 0.000001}
+
+    # Covariance on measurement of sizes
+    self.cov_meas_siz = {'R': 0.0001, 'h': 0.000001}
+
     #
     self.flag_robot_pose_set = False
     self.robot_posi = np.zeros((3,), dtype=float)
@@ -118,7 +125,8 @@ class ArsSimObstaclesDetectorRos:
     self.obstacles_dynamic_msg = MarkerArray()
 
     #
-    self.obstacles_detected_msg = MarkerArray()
+    self.obstacles_detected_world_msg = MarkerArray()
+    self.obstacles_detected_robot_msg = MarkerArray()
 
 
     # Obstacle Detection loop
@@ -172,7 +180,9 @@ class ArsSimObstaclesDetectorRos:
     # Publishers
 
     # 
-    self.obstacles_detected_pub = rospy.Publisher('obstacles_detected', MarkerArray, queue_size=1)
+    self.obstacles_detected_world_pub = rospy.Publisher('obstacles_detected', MarkerArray, queue_size=1)
+    # 
+    self.obstacles_detected_robot_pub = rospy.Publisher('obstacles_detected_robot', MarkerArray, queue_size=1)
 
 
 
@@ -240,8 +250,15 @@ class ArsSimObstaclesDetectorRos:
   def detectObstacles(self):
 
     #
-    self.obstacles_detected_msg = MarkerArray()
-    self.obstacles_detected_msg.markers = []
+    self.obstacles_detected_world_msg = MarkerArray()
+    self.obstacles_detected_world_msg.markers = []
+
+    #
+    self.obstacles_detected_robot_msg = MarkerArray()
+    self.obstacles_detected_robot_msg.markers = []
+
+    #
+    robot_atti_rot_mat = ars_lib_helpers.Quaternion.rotMat3dFromQuatSimp(self.robot_atti_quat_simp)
 
 
     # Check
@@ -255,33 +272,100 @@ class ArsSimObstaclesDetectorRos:
           # Check distance
           if(obst_i_msg.type == 3):
 
-            obst_i_posi = np.zeros((3,), dtype=float)
-            obst_i_posi[0] = obst_i_msg.pose.position.x
-            obst_i_posi[1] = obst_i_msg.pose.position.y
-            obst_i_posi[2] = obst_i_msg.pose.position.z
+            obst_i_posi_world = np.zeros((3,), dtype=float)
+            obst_i_posi_world[0] = obst_i_msg.pose.position.x
+            obst_i_posi_world[1] = obst_i_msg.pose.position.y
+            obst_i_posi_world[2] = obst_i_msg.pose.position.z
 
             obst_i_rad = obst_i_msg.scale.x/2.0
 
-            distance = ars_lib_helpers.distancePointCircle(self.robot_posi[0:2], obst_i_posi[0:2], obst_i_rad)
-            #distance = np.linalg.norm(obst_i_posi-self.robot_posi)
+            distance = ars_lib_helpers.distancePointCircle(self.robot_posi[0:2], obst_i_posi_world[0:2], obst_i_rad)
 
+            #
             if(distance <= self.detector_range):
+
               
-              # TODO: Change to robot coordinates
-              # t_O_R = (R_R_W)^T * (t_O_R - t_R_W)
-              # R_O_R = (R_R_W)^T * R_O_W
+              # Noises
+              #
+              posi_noise = np.zeros((3,), dtype=float)
+              posi_noise[0] = np.random.normal(loc = 0.0, scale = math.sqrt(self.cov_meas_pos['x']))
+              posi_noise[1] = np.random.normal(loc = 0.0, scale = math.sqrt(self.cov_meas_pos['y']))
+              posi_noise[2] = np.random.normal(loc = 0.0, scale = math.sqrt(self.cov_meas_pos['z']))
+              #
+              radius_noise = np.random.normal(loc = 0.0, scale = math.sqrt(self.cov_meas_siz['R']))
+              height_noise = np.random.normal(loc = 0.0, scale = math.sqrt(self.cov_meas_siz['h']))
+          
+
+
+              ############
+              # obstacle wrt World 
+              obst_i_world_msg = []
+              obst_i_world_msg = copy.deepcopy(obst_i_msg)
 
               # Change color
-              obst_i_msg.color.r = 0.0
-              obst_i_msg.color.g = 0.0
-              obst_i_msg.color.b = 1.0
-              obst_i_msg.color.a = 0.6
+              obst_i_world_msg.color.r = 0.0
+              obst_i_world_msg.color.g = 0.0
+              obst_i_world_msg.color.b = 1.0
+              obst_i_world_msg.color.a = 0.6
 
               # Lifetime
-              obst_i_msg.lifetime = rospy.Duration(0.1)
+              obst_i_world_msg.lifetime = rospy.Duration(2.0*1.0/self.obstacle_detect_loop_freq)
 
               #
-              self.obstacles_detected_msg.markers.append(obst_i_msg)
+              obst_i_world_msg.pose.position.x = obst_i_posi_world[0] + posi_noise[0]
+              obst_i_world_msg.pose.position.y = obst_i_posi_world[1] + posi_noise[1]
+              obst_i_world_msg.pose.position.z = obst_i_posi_world[2] + posi_noise[2]
+
+              # Sizes with noise
+              obst_i_world_msg.scale.x += 2.0*radius_noise
+              obst_i_world_msg.scale.y += 2.0*radius_noise
+              obst_i_world_msg.scale.z += height_noise
+
+
+
+              ##############
+              # obstacle wrt Robot 
+              obst_i_robot_msg = []
+              obst_i_robot_msg = copy.deepcopy(obst_i_msg)
+
+              # Change color
+              obst_i_robot_msg.color.r = 0.0
+              obst_i_robot_msg.color.g = 0.0
+              obst_i_robot_msg.color.b = 1.0
+              obst_i_robot_msg.color.a = 0.6
+
+              # Lifetime
+              obst_i_robot_msg.lifetime = rospy.Duration(2.0*1.0/self.obstacle_detect_loop_freq)
+              
+              # Change to robot coordinates
+              # t_O_R = (R_R_W)^T * (t_O_W - t_R_W)
+              # R_O_R = (R_R_W)^T * R_O_W
+              #
+              obst_i_posi_robot = np.matmul(robot_atti_rot_mat.T, (obst_i_posi_world-self.robot_posi))
+
+              #
+              obst_i_robot_msg.pose.position.x = obst_i_posi_robot[0] + posi_noise[0]
+              obst_i_robot_msg.pose.position.y = obst_i_posi_robot[1] + posi_noise[1]
+              obst_i_robot_msg.pose.position.z = obst_i_posi_robot[2] + posi_noise[2]
+
+
+              # Change frame
+              obst_i_robot_msg.header.frame_id = self.robot_frame
+
+              # Sizes with noise
+              obst_i_robot_msg.scale.x += 2.0*radius_noise
+              obst_i_robot_msg.scale.y += 2.0*radius_noise
+              obst_i_robot_msg.scale.z += height_noise
+
+
+              
+
+              # Append world
+              self.obstacles_detected_world_msg.markers.append(obst_i_world_msg)
+
+              # Append robot
+              self.obstacles_detected_robot_msg.markers.append(obst_i_robot_msg)
+
 
           else:
             print("Unknown obstacle type:"+obst_i_msg.type)
@@ -300,36 +384,107 @@ class ArsSimObstaclesDetectorRos:
             # t_O_R = (R_R_W)^T * (t_O_R - t_R_W)
             # R_O_R = (R_R_W)^T * R_O_W
 
-            obst_i_posi = np.zeros((3,), dtype=float)
-            obst_i_posi[0] = obst_i_msg.pose.position.x
-            obst_i_posi[1] = obst_i_msg.pose.position.y
-            obst_i_posi[2] = obst_i_msg.pose.position.z
+            obst_i_posi_world = np.zeros((3,), dtype=float)
+            obst_i_posi_world[0] = obst_i_msg.pose.position.x
+            obst_i_posi_world[1] = obst_i_msg.pose.position.y
+            obst_i_posi_world[2] = obst_i_msg.pose.position.z
 
             obst_i_rad = obst_i_msg.scale.x/2.0
 
-            distance = ars_lib_helpers.distancePointCircle(self.robot_posi[0:2], obst_i_posi[0:2], obst_i_rad)
-            #distance = np.linalg.norm(obst_i_posi-self.robot_posi)
+            distance = ars_lib_helpers.distancePointCircle(self.robot_posi[0:2], obst_i_posi_world[0:2], obst_i_rad)
+            #distance = np.linalg.norm(obst_i_posi_world-self.robot_posi)
 
             if(distance <= self.detector_range):
 
+              # Noises
+              #
+              posi_noise = np.zeros((3,), dtype=float)
+              posi_noise[0] = np.random.normal(loc = 0.0, scale = math.sqrt(self.cov_meas_pos['x']))
+              posi_noise[1] = np.random.normal(loc = 0.0, scale = math.sqrt(self.cov_meas_pos['y']))
+              posi_noise[2] = np.random.normal(loc = 0.0, scale = math.sqrt(self.cov_meas_pos['z']))
+              #
+              radius_noise = np.random.normal(loc = 0.0, scale = math.sqrt(self.cov_meas_siz['R']))
+              height_noise = np.random.normal(loc = 0.0, scale = math.sqrt(self.cov_meas_siz['h']))
+          
+
+
+              ############
+              # obstacle wrt World 
+              obst_i_world_msg = []
+              obst_i_world_msg = copy.deepcopy(obst_i_msg)
+
               # Change color
-              obst_i_msg.color.r = 0.0
-              obst_i_msg.color.g = 0.0
-              obst_i_msg.color.b = 1.0
-              obst_i_msg.color.a = 0.6
+              obst_i_world_msg.color.r = 0.0
+              obst_i_world_msg.color.g = 0.0
+              obst_i_world_msg.color.b = 1.0
+              obst_i_world_msg.color.a = 0.6
 
               # Lifetime
-              obst_i_msg.lifetime = rospy.Duration(0.1)
+              obst_i_world_msg.lifetime = rospy.Duration(2.0*1.0/self.obstacle_detect_loop_freq)
 
               #
-              self.obstacles_detected_msg.markers.append(obst_i_msg)
+              obst_i_world_msg.pose.position.x = obst_i_posi_world[0] + posi_noise[0]
+              obst_i_world_msg.pose.position.y = obst_i_posi_world[1] + posi_noise[1]
+              obst_i_world_msg.pose.position.z = obst_i_posi_world[2] + posi_noise[2]
+
+              # Sizes with noise
+              obst_i_world_msg.scale.x += 2.0*radius_noise
+              obst_i_world_msg.scale.y += 2.0*radius_noise
+              obst_i_world_msg.scale.z += height_noise
+
+
+
+              ##############
+              # obstacle wrt Robot 
+              obst_i_robot_msg = []
+              obst_i_robot_msg = copy.deepcopy(obst_i_msg)
+
+              # Change color
+              obst_i_robot_msg.color.r = 0.0
+              obst_i_robot_msg.color.g = 0.0
+              obst_i_robot_msg.color.b = 1.0
+              obst_i_robot_msg.color.a = 0.6
+
+              # Lifetime
+              obst_i_robot_msg.lifetime = rospy.Duration(2.0*1.0/self.obstacle_detect_loop_freq)
+              
+              # Change to robot coordinates
+              # t_O_R = (R_R_W)^T * (t_O_W - t_R_W)
+              # R_O_R = (R_R_W)^T * R_O_W
+              #
+              obst_i_posi_robot = np.matmul(robot_atti_rot_mat.T, (obst_i_posi_world-self.robot_posi))
+
+              #
+              obst_i_robot_msg.pose.position.x = obst_i_posi_robot[0] + posi_noise[0]
+              obst_i_robot_msg.pose.position.y = obst_i_posi_robot[1] + posi_noise[1]
+              obst_i_robot_msg.pose.position.z = obst_i_posi_robot[2] + posi_noise[2]
+
+
+              # Change frame
+              obst_i_robot_msg.header.frame_id = self.robot_frame
+
+              # Sizes with noise
+              obst_i_robot_msg.scale.x += 2.0*radius_noise
+              obst_i_robot_msg.scale.y += 2.0*radius_noise
+              obst_i_robot_msg.scale.z += height_noise
+
+
+              
+
+              # Append world
+              self.obstacles_detected_world_msg.markers.append(obst_i_world_msg)
+
+              # Append robot
+              self.obstacles_detected_robot_msg.markers.append(obst_i_robot_msg)
+              
 
           else:
             print("Unknown obstacle type!!")
 
 
     # Publish
-    self.obstacles_detected_pub.publish(self.obstacles_detected_msg)
+    self.obstacles_detected_world_pub.publish(self.obstacles_detected_world_msg)
+    self.obstacles_detected_robot_pub.publish(self.obstacles_detected_robot_msg)
 
     #
     return
