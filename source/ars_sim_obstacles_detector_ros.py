@@ -180,7 +180,7 @@ class ArsSimObstaclesDetectorRos:
     # Publishers
 
     # 
-    self.obstacles_detected_world_pub = rospy.Publisher('obstacles_detected', MarkerArray, queue_size=1)
+    self.obstacles_detected_world_pub = rospy.Publisher('obstacles_detected_world', MarkerArray, queue_size=1)
     # 
     self.obstacles_detected_robot_pub = rospy.Publisher('obstacles_detected_robot', MarkerArray, queue_size=1)
 
