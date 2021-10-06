@@ -69,6 +69,7 @@ class ArsSimObstaclesDetectorRos:
   obstacles_dynamic_sub = None
 
   # Obstacles detected pub
+  flag_pub_obstacles_detected_world = False
   obstacles_detected_world_pub = None
   obstacles_detected_robot_pub = None
 
@@ -180,7 +181,8 @@ class ArsSimObstaclesDetectorRos:
     # Publishers
 
     # 
-    self.obstacles_detected_world_pub = rospy.Publisher('obstacles_detected_world', MarkerArray, queue_size=1)
+    if(self.flag_pub_obstacles_detected_world):
+      self.obstacles_detected_world_pub = rospy.Publisher('obstacles_detected_world', MarkerArray, queue_size=1)
     # 
     self.obstacles_detected_robot_pub = rospy.Publisher('obstacles_detected_robot', MarkerArray, queue_size=1)
 
@@ -483,7 +485,8 @@ class ArsSimObstaclesDetectorRos:
 
 
     # Publish
-    self.obstacles_detected_world_pub.publish(self.obstacles_detected_world_msg)
+    if(self.flag_pub_obstacles_detected_world):
+      self.obstacles_detected_world_pub.publish(self.obstacles_detected_world_msg)
     self.obstacles_detected_robot_pub.publish(self.obstacles_detected_robot_msg)
 
     #
