@@ -5,6 +5,10 @@ from numpy import *
 
 import os
 
+# pyyaml - https://pyyaml.org/wiki/PyYAMLDocumentation
+import yaml
+from yaml.loader import SafeLoader
+
 import copy
 
 
@@ -41,6 +45,12 @@ import ars_lib_helpers
 class ArsSimObstaclesDetectorRos:
 
   #######
+
+  #
+  sim_obstacles_detector_params_yaml_file_name = None
+
+  #
+  sim_obstacles_detector = None
 
   # Robot frame
   robot_frame = None
@@ -149,9 +159,33 @@ class ArsSimObstaclesDetectorRos:
 
     #### READING PARAMETERS ###
     
-    # TODO
+    # Obstacle detector params
+    default_sim_obstacles_detector_params_yaml_file_name = os.path.join(pkg_path,'config','config_sim_obstacles_detector.yaml')
+    sim_obstacles_detector_params_yaml_file_name_str = rospy.get_param('~sim_obstacles_detector_params_yaml_file', default_sim_obstacles_detector_params_yaml_file_name)
+    print(sim_obstacles_detector_params_yaml_file_name_str)
+    self.sim_obstacles_detector_params_yaml_file_name = os.path.abspath(sim_obstacles_detector_params_yaml_file_name_str)
 
     ###
+
+
+    # Load Obstacle detector params
+    with open(self.sim_obstacles_detector_params_yaml_file_name,'r') as file:
+        # The FullLoader parameter handles the conversion from YAML
+        # scalar values to Python the dictionary format
+        self.sim_obstacles_detector = yaml.load(file, Loader=SafeLoader)['sim_obstacles_detector']
+
+    if(self.sim_obstacles_detector is None):
+      print("Error loading sim obstacles detector param")
+    else:
+      print("Sim obstacles detector parameters:")
+      print(self.sim_obstacles_detector)
+
+    # Set params
+    self.obstacle_detect_loop_freq = self.sim_obstacles_detector['obstacle_detect_loop_freq']
+    self.robot_frame = self.sim_obstacles_detector['robot_frame']
+    self.detector_range = self.sim_obstacles_detector['detector_range']
+    self.cov_meas_pos = self.sim_obstacles_detector['cov_meas_pos']
+    self.cov_meas_siz = self.sim_obstacles_detector['cov_meas_siz']
 
 
     
