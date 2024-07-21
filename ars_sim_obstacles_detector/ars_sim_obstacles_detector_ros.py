@@ -14,7 +14,6 @@ import copy
 import rclpy
 from rclpy.node import Node
 from rclpy.time import Time
-from rclpy.qos import QoSProfile, DurabilityPolicy
 
 from ament_index_python.packages import get_package_share_directory
 
