@@ -99,7 +99,9 @@ class ArsSimObstaclesDetectorRos(Node):
   #########
 
   def __init__(self, node_name='ars_sim_obstacles_detector_node'):
-
+    # Init ROS
+    super().__init__(node_name)
+    
     # Robot frame
     self.robot_frame = 'robot_base_link'
 
@@ -143,9 +145,7 @@ class ArsSimObstaclesDetectorRos(Node):
 
 
   def __init(self, node_name='ars_sim_obstacles_detector_node'):
-    # Init ROS
-    super().__init__(node_name)
-    
+       
     # Package path
     try:
       pkg_path = get_package_share_directory('ars_sim_obstacles_detector')
