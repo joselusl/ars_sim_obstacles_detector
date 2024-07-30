@@ -149,9 +149,9 @@ class ArsSimObstaclesDetectorRos(Node):
     # Package path
     try:
       pkg_path = get_package_share_directory('ars_sim_obstacles_detector')
-      print(f"The path to the package is: {pkg_path}")
+      self.get_logger().info(f"The path to the package is: {pkg_path}")
     except ModuleNotFoundError:
-      print("Package not found")
+      self.get_logger().info("Package not found")
 
 
     #### READING PARAMETERS ###
@@ -162,7 +162,7 @@ class ArsSimObstaclesDetectorRos(Node):
     self.declare_parameter('sim_obstacles_detector_params_yaml_file', default_sim_obstacles_detector_params_yaml_file_name)
     # Get the parameter value
     sim_obstacles_detector_params_yaml_file_name_str = self.get_parameter('sim_obstacles_detector_params_yaml_file').get_parameter_value().string_value
-    print(sim_obstacles_detector_params_yaml_file_name_str)
+    self.get_logger().info(sim_obstacles_detector_params_yaml_file_name_str)
     #
     self.sim_obstacles_detector_params_yaml_file_name = os.path.abspath(sim_obstacles_detector_params_yaml_file_name_str)
 
@@ -176,10 +176,10 @@ class ArsSimObstaclesDetectorRos(Node):
         self.sim_obstacles_detector = yaml.load(file, Loader=SafeLoader)['sim_obstacles_detector']
 
     if(self.sim_obstacles_detector is None):
-      print("Error loading sim obstacles detector param")
+      self.get_logger().info("Error loading sim obstacles detector param")
     else:
-      print("Sim obstacles detector parameters:")
-      print(self.sim_obstacles_detector)
+      self.get_logger().info("Sim obstacles detector parameters:")
+      self.get_logger().info(str(self.sim_obstacles_detector))
 
     # Set params
     self.obstacle_detect_loop_freq = self.sim_obstacles_detector['obstacle_detect_loop_freq']
@@ -420,7 +420,7 @@ class ArsSimObstaclesDetectorRos(Node):
               self.obstacles_detected_world_msg.markers.append(obst_i_world_msg)
 
           else:
-            print("Unknown obstacle type:"+obst_i_msg.type)
+            self.get_logger().info("Unknown obstacle type:"+obst_i_msg.type)
 
 
       # Obstacles dynamic
@@ -441,7 +441,7 @@ class ArsSimObstaclesDetectorRos(Node):
               self.obstacles_detected_world_msg.markers.append(obst_i_world_msg)
 
           else:
-            print("Unknown obstacle type!!")
+            self.get_logger().info("Unknown obstacle type!!")
 
 
     # Publish
